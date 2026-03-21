@@ -1,0 +1,19 @@
+analysis:
+  errors:
+    - error_on_unknown_keys: true
+  linter:
+    rules:
+      - avoid_print
+      - prefer_const_constructors
+      - unnecessary_new
+      - prefer_final_fields
+      - always_declare_return_types
+      - type_annotate_public_apis
+      - public_member_api_docs
+      - lines_longer_than_80_chars
+      - prefer_single_quotes
+      - avoid_annotating_with_dynamic
+  include:
+    - lib/**/*.dart
+  exclude:
+    - test/**

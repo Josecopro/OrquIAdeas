@@ -1,0 +1,15 @@
+name: ai_semantic_backend
+description: Backend Dart API for Llama integrations and semantic workflows.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  http: ^1.2.2
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+
+dev_dependencies:
+  lints: ^5.1.1
