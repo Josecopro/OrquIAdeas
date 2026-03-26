@@ -1,5 +1,7 @@
+
 import 'dart:convert';
 import 'dart:io';
+import 'package:http/io_client.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -7,8 +9,17 @@ abstract class LlmClient {
   Future<String> generate({required String prompt});
 }
 
+
 class LlmFactory {
   static LlmClient create() {
+    // Permitir certificados autofirmados solo si la variable de entorno DART_ALLOW_BAD_CERT está en 'true'
+    if (Platform.environment['DART_ALLOW_BAD_CERT'] == 'true') {
+      final ioClient = IOClient(
+        HttpClient()
+          ..badCertificateCallback = (cert, host, port) => true,
+      );
+      return GeminiClient(client: ioClient);
+    }
     return GeminiClient();
   }
 }
@@ -42,7 +53,7 @@ class GeminiClient implements LlmClient {
         ],
         'generationConfig': <String, dynamic>{
           'temperature': 0.3,
-          'maxOutputTokens': 512,
+          'maxOutputTokens': 2048,
         },
       }),
     );
