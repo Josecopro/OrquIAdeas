@@ -6,15 +6,7 @@ class ChatRepository {
 
   final AiService _aiService;
 
-  Future<String> askAssistant(
-    String query, {
-    required String provider,
-    required String model,
-  }) {
-    return _aiService.ask(
-      query,
-      provider: provider,
-      model: model,
-    );
+  Future<String> askAssistant(String query) {
+    return _aiService.ask(query);
   }
 }

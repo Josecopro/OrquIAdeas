@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'features/chat/presentation/chat_page.dart';
-import 'features/search/presentation/search_page.dart';
 
 void main() {
   runApp(const CafiWaterApp());
@@ -30,45 +29,11 @@ class CafiWaterApp extends StatelessWidget {
   }
 }
 
-class HomeShell extends StatefulWidget {
+class HomeShell extends StatelessWidget {
   const HomeShell({Key? key}) : super(key: key);
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends State<HomeShell> {
-  int _index = 0;
-
-  final List<Widget> _pages = const <Widget>[
-    ChatPage(),
-    SearchPage(),
-  ];
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (int value) {
-          setState(() {
-            _index = value;
-          });
-        },
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'Chat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.travel_explore_outlined),
-            selectedIcon: Icon(Icons.travel_explore_rounded),
-            label: 'RAG',
-          ),
-        ],
-      ),
-    );
+    return const Scaffold(body: ChatPage());
   }
 }

@@ -4,9 +4,8 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import 'handlers/chat_handler.dart';
-import 'handlers/search_handler.dart';
 
-Router buildRouter(ChatHandler chatHandler, SearchHandler searchHandler) {
+Router buildRouter(ChatHandler chatHandler) {
   final router = Router();
 
   router.get('/health', (Request request) {
@@ -17,7 +16,6 @@ Router buildRouter(ChatHandler chatHandler, SearchHandler searchHandler) {
   });
 
   router.post('/chat', chatHandler.handle);
-  router.post('/semantic-search', searchHandler.handle);
 
   return router;
 }

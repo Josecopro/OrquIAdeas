@@ -1,110 +1,160 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 abstract class LlmClient {
-  Future<String> generate({required String prompt, required String model});
+  Future<String> generate({required String prompt});
 }
 
 class LlmFactory {
-  static LlmClient create(String provider) {
-    if (provider == 'huggingface') {
-      return HuggingFaceClient();
-    }
-
-    return OllamaClient();
+  static LlmClient create() {
+    return GeminiClient();
   }
 }
 
-class OllamaClient implements LlmClient {
-  OllamaClient({http.Client? client}) : _client = client ?? http.Client();
+class GeminiClient implements LlmClient {
+  GeminiClient({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
   @override
-  Future<String> generate({
-    required String prompt,
-    required String model,
-  }) async {
-    const baseUrl = String.fromEnvironment(
-      'OLLAMA_BASE_URL',
-      defaultValue: 'http://localhost:11434',
-    );
+  Future<String> generate({required String prompt}) async {
+    final apiKey = _resolveGeminiApiKey();
+    if (apiKey.isEmpty) {
+      throw Exception('GEMINI_API_KEY is required for Gemini.');
+    }
+
+    final targetModel = _resolveGeminiModelDefault();
 
     final response = await _client.post(
-      Uri.parse('$baseUrl/api/generate'),
+      Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/$targetModel:generateContent?key=$apiKey',
+      ),
       headers: const <String, String>{'Content-Type': 'application/json'},
       body: jsonEncode(<String, dynamic>{
-        'model': model.isEmpty ? 'llama3' : model,
-        'prompt': prompt,
-        'stream': false,
-      }),
-    );
-
-    if (response.statusCode >= 400) {
-      throw Exception('Ollama error: ${response.body}');
-    }
-
-    final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    return (payload['response'] ?? '').toString();
-  }
-}
-
-class HuggingFaceClient implements LlmClient {
-  HuggingFaceClient({http.Client? client}) : _client = client ?? http.Client();
-
-  final http.Client _client;
-
-  @override
-  Future<String> generate({
-    required String prompt,
-    required String model,
-  }) async {
-    const token = String.fromEnvironment('HUGGING_FACE_API_TOKEN');
-    const defaultModel = String.fromEnvironment(
-      'HUGGING_FACE_MODEL',
-      defaultValue: 'meta-llama/Meta-Llama-3-8B-Instruct',
-    );
-
-    if (token.isEmpty) {
-      throw Exception('HUGGING_FACE_API_TOKEN is required for Hugging Face.');
-    }
-
-    final targetModel = model.isEmpty ? defaultModel : model;
-
-    final response = await _client.post(
-      Uri.parse('https://api-inference.huggingface.co/models/$targetModel'),
-      headers: <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(<String, dynamic>{
-        'inputs': prompt,
-        'parameters': <String, dynamic>{
-          'max_new_tokens': 300,
+        'contents': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'parts': <Map<String, dynamic>>[
+              <String, dynamic>{'text': prompt},
+            ],
+          },
+        ],
+        'generationConfig': <String, dynamic>{
           'temperature': 0.3,
-          'return_full_text': false,
+          'maxOutputTokens': 512,
         },
       }),
     );
 
     if (response.statusCode >= 400) {
-      throw Exception('Hugging Face error: ${response.body}');
+      throw Exception('Gemini error: ${response.body}');
     }
 
-    final decoded = jsonDecode(response.body);
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final candidates = payload['candidates'];
 
-    if (decoded is List && decoded.isNotEmpty) {
-      final first = decoded.first;
+    if (candidates is List && candidates.isNotEmpty) {
+      final first = candidates.first;
       if (first is Map<String, dynamic>) {
-        return (first['generated_text'] ?? '').toString();
+        final content = first['content'];
+        if (content is Map<String, dynamic>) {
+          final parts = content['parts'];
+          if (parts is List) {
+            final textBuffer = StringBuffer();
+            for (final part in parts) {
+              if (part is Map<String, dynamic> && part['text'] != null) {
+                textBuffer.write(part['text'].toString());
+              }
+            }
+
+            final text = textBuffer.toString().trim();
+            if (text.isNotEmpty) {
+              return text;
+            }
+          }
+        }
       }
     }
 
-    if (decoded is Map<String, dynamic>) {
-      return (decoded['generated_text'] ?? decoded['error'] ?? '').toString();
+    return 'No response from Gemini model.';
+  }
+
+  String _resolveGeminiApiKey() {
+    final envKey = Platform.environment['GEMINI_API_KEY'];
+    if (envKey != null && envKey.trim().isNotEmpty) {
+      return envKey.trim();
     }
 
-    return 'No response from Hugging Face model.';
+    const definedKey = String.fromEnvironment('GEMINI_API_KEY');
+    if (definedKey.isNotEmpty) {
+      return definedKey;
+    }
+
+    return _DotEnvReader.value('GEMINI_API_KEY');
+  }
+
+  String _resolveGeminiModelDefault() {
+    final envModel = Platform.environment['GEMINI_MODEL'];
+    if (envModel != null && envModel.trim().isNotEmpty) {
+      return envModel.trim();
+    }
+
+    const definedModel = String.fromEnvironment('GEMINI_MODEL');
+    if (definedModel.isNotEmpty) {
+      return definedModel;
+    }
+
+    final modelFromFile = _DotEnvReader.value('GEMINI_MODEL');
+    if (modelFromFile.isNotEmpty) {
+      return modelFromFile;
+    }
+
+    return 'gemini-2.0-flash';
+  }
+}
+
+class _DotEnvReader {
+  static Map<String, String>? _cache;
+
+  static String value(String key) {
+    _cache ??= _load();
+    return _cache![key] ?? '';
+  }
+
+  static Map<String, String> _load() {
+    final paths = <String>['.env', 'backend/.env'];
+    for (final path in paths) {
+      final file = File(path);
+      if (!file.existsSync()) {
+        continue;
+      }
+
+      final lines = file.readAsLinesSync();
+      final values = <String, String>{};
+      for (final rawLine in lines) {
+        final line = rawLine.trim();
+        if (line.isEmpty || line.startsWith('#')) {
+          continue;
+        }
+
+        final separator = line.indexOf('=');
+        if (separator <= 0) {
+          continue;
+        }
+
+        final key = line.substring(0, separator).trim();
+        final value = line.substring(separator + 1).trim();
+        if (key.isNotEmpty) {
+          values[key] = value;
+        }
+      }
+
+      if (values.isNotEmpty) {
+        return values;
+      }
+    }
+
+    return <String, String>{};
   }
 }

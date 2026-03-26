@@ -13,8 +13,6 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final ChatRepository _repository = ChatRepository();
   final TextEditingController _controller = TextEditingController();
-  final TextEditingController _modelController =
-      TextEditingController(text: 'llama3');
   final ScrollController _scrollController = ScrollController();
 
   final List<ChatMessage> _messages = <ChatMessage>[
@@ -27,12 +25,10 @@ class _ChatPageState extends State<ChatPage> {
   ];
 
   bool _isSending = false;
-  String _selectedProvider = 'ollama';
 
   @override
   void dispose() {
     _controller.dispose();
-    _modelController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -58,11 +54,9 @@ class _ChatPageState extends State<ChatPage> {
     _scrollToBottom();
 
     try {
-      final answer = await _repository.askAssistant(
-        query,
-        provider: _selectedProvider,
-        model: _modelController.text.trim(),
-      );
+      debugPrint('[chat-ui] Sending message to backend (/chat)...');
+      final answer = await _repository.askAssistant(query);
+      debugPrint('[chat-ui] Backend connection OK, response received.');
       if (!mounted) {
         return;
       }
@@ -76,17 +70,20 @@ class _ChatPageState extends State<ChatPage> {
           ),
         );
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('[chat-ui] Backend/Gemini request failed: $error');
+      debugPrint('[chat-ui] Stack: $stackTrace');
       if (!mounted) {
         return;
       }
 
+      final details = error.toString();
       setState(() {
         _messages.add(
           ChatMessage(
             author: Author.assistant,
             text:
-                'No pude conectar con el backend. Verifica que el servidor este corriendo y las variables de entorno.',
+                'No pude completar la consulta. Detalle: $details\n\nVerifica backend activo, GEMINI_API_KEY y cuota de Gemini.',
             timestamp: DateTime.now(),
           ),
         );
@@ -138,24 +135,6 @@ class _ChatPageState extends State<ChatPage> {
           child: Column(
             children: <Widget>[
               _HeroHeader(theme: theme),
-              _ProviderSelector(
-                selectedProvider: _selectedProvider,
-                modelController: _modelController,
-                onProviderChanged: (String provider) {
-                  setState(() {
-                    _selectedProvider = provider;
-                    if (provider == 'ollama' &&
-                        _modelController.text.trim().isEmpty) {
-                      _modelController.text = 'llama3';
-                    }
-                    if (provider == 'huggingface' &&
-                        _modelController.text.trim() == 'llama3') {
-                      _modelController.text =
-                          'meta-llama/Meta-Llama-3-8B-Instruct';
-                    }
-                  });
-                },
-              ),
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
@@ -209,64 +188,6 @@ class _ChatPageState extends State<ChatPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ProviderSelector extends StatelessWidget {
-  const _ProviderSelector({
-    required this.selectedProvider,
-    required this.modelController,
-    required this.onProviderChanged,
-  });
-
-  final String selectedProvider;
-  final TextEditingController modelController;
-  final ValueChanged<String> onProviderChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SegmentedButton<String>(
-            segments: const <ButtonSegment<String>>[
-              ButtonSegment<String>(
-                value: 'ollama',
-                label: Text('Ollama'),
-                icon: Icon(Icons.memory_rounded),
-              ),
-              ButtonSegment<String>(
-                value: 'huggingface',
-                label: Text('Hugging Face'),
-                icon: Icon(Icons.cloud_done_rounded),
-              ),
-            ],
-            selected: <String>{selectedProvider},
-            onSelectionChanged: (Set<String> selection) {
-              onProviderChanged(selection.first);
-            },
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: modelController,
-            decoration: InputDecoration(
-              labelText: 'Modelo Llama',
-              hintText: selectedProvider == 'ollama'
-                  ? 'llama3'
-                  : 'meta-llama/Meta-Llama-3-8B-Instruct',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              isDense: true,
-            ),
-          ),
-        ],
       ),
     );
   }
