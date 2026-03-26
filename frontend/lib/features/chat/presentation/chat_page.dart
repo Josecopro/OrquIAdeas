@@ -1,4 +1,6 @@
+
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../data/chat_repository.dart';
 import '../domain/chat_message.dart';
@@ -166,15 +168,25 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                           ],
                         ),
-                        child: Text(
-                          message.text,
-                          style: TextStyle(
-                            color:
-                                isUser ? Colors.white : const Color(0xFF1B1B1B),
-                            fontSize: 15,
-                            height: 1.35,
-                          ),
-                        ),
+                        child: isUser
+                            ? Text(
+                                message.text,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  height: 1.35,
+                                ),
+                              )
+                            : MarkdownBody(
+                                data: message.text,
+                                styleSheet: MarkdownStyleSheet(
+                                  p: const TextStyle(
+                                    color: Color(0xFF1B1B1B),
+                                    fontSize: 15,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
                       ),
                     );
                   },
