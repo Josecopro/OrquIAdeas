@@ -12,9 +12,9 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-INDEX_NAME = "cafe"  # Puedes cambiarlo si quieres
+INDEX_NAME = "cafe"  
 PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")  # Ajusta si usas otro cloud
-PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")  # Cambiado a región gratuita por defecto
+PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")  # Región gratuita por defecto
 assert PINECONE_API_KEY, "Falta PINECONE_API_KEY en .env"
 
 
