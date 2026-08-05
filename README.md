@@ -74,10 +74,15 @@ dart run lib/server.dart
 ```
 cd frontend
 flutter pub get
-flutter run --dart-define=BACKEND_BASE_URL=http://10.0.2.2:8080
+flutter run
 ```
 
-Para iOS simulador usa normalmente `http://localhost:8080`.
+La app se conecta por defecto al backend hosteado en `https://orquiadeas.onrender.com`.
+Para apuntar a un backend local durante desarrollo:
+
+```
+flutter run --dart-define=BACKEND_BASE_URL=http://10.0.2.2:8080
+```
 
 ## Conexion a LLM
 
