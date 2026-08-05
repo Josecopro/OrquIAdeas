@@ -1,0 +1,86 @@
+name: Backend CI
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'pubspec.*'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'pubspec.*'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+env:
+  GEMINI_MODEL: gemini-2.0-flash
+  SMOKE_PORT: 8091
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        working-directory: backend
+        run: dart pub get
+
+      - name: Analyze
+        working-directory: backend
+        run: dart analyze
+
+      - name: Start backend server
+        working-directory: backend
+        env:
+          PORT: ${{ env.SMOKE_PORT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -e
+          dart run lib/server.dart > /tmp/backend.log 2>&1 &
+          echo "server_pid=$!" > /tmp/backend.pid
+          for i in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$SMOKE_PORT/health" > /tmp/health.json 2>/dev/null; then
+              echo "Health check OK: $(cat /tmp/health.json)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not become healthy in time."
+          cat /tmp/backend.log
+          exit 1
+
+      - name: Run chat smoke test
+        shell: bash
+        run: |
+          set -e
+          response=$(curl -fsS -X POST "http://127.0.0.1:$SMOKE_PORT/chat" \
+            -H 'Content-Type: application/json' \
+            -d '{"query": "Como preparar cascarilla de cafe para filtrar agua?"}')
+          echo "$response"
+          echo "$response" | grep -q '"answer"' || {
+            echo "Chat response did not include 'answer'."
+            cat /tmp/backend.log
+            exit 1
+          }
+          echo "Chat smoke test passed."
+
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload backend logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-logs
+          path: /tmp/backend.log
