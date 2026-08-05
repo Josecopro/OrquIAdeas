@@ -87,7 +87,7 @@ Para iOS simulador usa normalmente `http://localhost:8080`.
 
 ```
 GEMINI_API_KEY=tu_api_key
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
 2. Levanta backend usando variables de `.env`:

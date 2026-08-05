@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 env:
-  GEMINI_MODEL: gemini-2.0-flash
+  GEMINI_MODEL: gemini-3.1-flash-lite
   SMOKE_PORT: 8091
 
 jobs:
@@ -35,6 +35,45 @@ jobs:
       - name: Analyze
         working-directory: backend
         run: dart analyze
+
+      - name: Check Gemini API key and model
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::The secret GEMINI_API_KEY is empty or not configured."
+            exit 1
+          fi
+          echo "Testing key against model '$GEMINI_MODEL'..."
+          code=$(curl -sS -o /tmp/gemini_check.json -w '%{http_code}' \
+            "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent?key=$GEMINI_API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"contents":[{"parts":[{"text":"Say OK"}]}]}')
+          echo "Gemini API responded with HTTP $code"
+          cat /tmp/gemini_check.json
+          echo ""
+          case "$code" in
+            200)
+              echo "Gemini API key and model OK."
+              ;;
+            400|404)
+              echo "::error::Model '$GEMINI_MODEL' is not valid for this API key. Update GEMINI_MODEL in the workflow env."
+              exit 1
+              ;;
+            401|403)
+              echo "::error::GEMINI_API_KEY is invalid or lacks permissions. Regenerate the key in AI Studio and update the repository secret."
+              exit 1
+              ;;
+            429)
+              echo "::error::Quota exceeded for GEMINI_API_KEY on model '$GEMINI_MODEL' (free tier exhausted or billing needed)."
+              exit 1
+              ;;
+            *)
+              echo "::error::Unexpected Gemini API response."
+              exit 1
+              ;;
+          esac
 
       - name: Start backend server
         working-directory: backend

@@ -121,7 +121,7 @@ class GeminiClient implements LlmClient {
       return modelFromFile;
     }
 
-    return 'gemini-2.0-flash';
+    return 'gemini-3.1-flash-lite';
   }
 }
 
