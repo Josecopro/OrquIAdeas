@@ -60,11 +60,19 @@ jobs:
         shell: bash
         run: |
           set -e
-          response=$(curl -fsS -X POST "http://127.0.0.1:$SMOKE_PORT/chat" \
+          response=$(curl -sS -w '\n%{http_code}' -X POST "http://127.0.0.1:$SMOKE_PORT/chat" \
             -H 'Content-Type: application/json' \
             -d '{"query": "Como preparar cascarilla de cafe para filtrar agua?"}')
-          echo "$response"
-          echo "$response" | grep -q '"answer"' || {
+          status="${response##*$'\n'}"
+          body="${response%$'\n'*}"
+          echo "HTTP status: $status"
+          echo "Response body: $body"
+          if [ "$status" != "200" ]; then
+            echo "Chat request failed."
+            cat /tmp/backend.log
+            exit 1
+          fi
+          echo "$body" | grep -q '"answer"' || {
             echo "Chat response did not include 'answer'."
             cat /tmp/backend.log
             exit 1
